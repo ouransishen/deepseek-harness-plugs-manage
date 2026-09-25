@@ -598,6 +598,20 @@ export function apply(ctx, config) {
     return env
   }
 
+  // shell 服务的前台执行有前后两代形状：新一代是
+  // `execute(spec)` 返回进程句柄、再由 `handle.result()` 给出 ShellRunResult；
+  // 旧一代（本插件 v0.3.x 编写时的形状）是 `run(spec)` 直接返回结果。
+  // 只认 `run` 会在新一代宿主上抛 "shell.run is not a function"，只认
+  // `execute` 又会在旧宿主上失败，因此两代都容忍。
+  async function runShellSpec(shell, spec) {
+    if (typeof shell.execute === 'function') {
+      const execution = await shell.execute(spec)
+      return typeof execution.result === 'function' ? execution.result() : execution
+    }
+    if (typeof shell.run === 'function') return shell.run(spec)
+    throw new Error('shell 服务既没有 execute() 也没有 run()：当前 DSH 版本与插件不兼容')
+  }
+
   function discoverEnv() {
     if (envPromise !== undefined) return envPromise
     envPromise = (async () => {
@@ -610,7 +624,7 @@ export function apply(ctx, config) {
             'if command -v pnpm >/dev/null 2>&1; then printf "PNPM:%s\\n" "$(command -v pnpm)"; fi',
             'if command -v node >/dev/null 2>&1; then printf "NODE:%s\\n" "$(command -v node)"; fi',
           ].join('\n')
-          const result = await shell.run(shell.resolve({ command, timeoutMs: 15000, stdoutMaxBytes: 8192 }))
+          const result = await runShellSpec(shell, shell.resolve({ command, timeoutMs: 15000, stdoutMaxBytes: 8192 }))
           const text = result.stdout !== undefined ? result.stdout.text : ''
           const env = { dshHome: '', cli: { kind: 'missing', value: '' }, pnpm: '', node: '' }
           for (const line of text.split('\n')) {
@@ -759,7 +773,7 @@ export function apply(ctx, config) {
       stdoutMaxBytes: 512 * 1024,
       sandboxPolicy: policy,
     })
-    const result = await shell.run(spec)
+    const result = await runShellSpec(shell, spec)
     return {
       ok: result.exitCode === 0,
       exitCode: result.exitCode,

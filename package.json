@@ -1,6 +1,6 @@
 {
   "name": "dsh-plug-manager",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "description": "DeepSeek Harness 插件管理器：发现 GitHub dsh-plugin topic 下的插件仓库，通过 `dsh plugin` 安装/移除/更新 profile 插件，并在 设置 → 插件 → 插件市场 标签页中浏览管理。",
   "type": "module",
   "main": "index.js",
